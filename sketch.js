@@ -4,6 +4,7 @@ var gameChar_x, gameChar_y, floorPos_y;
 var mobile = { zones: null, joyVec: {x:0,y:0}, jumpLatch: false };
 var BASE_W = 1024, BASE_H = 576;
 var viewScale = 1, viewOffsetX = 0, viewOffsetY = 0;
+var prevCharY = 0;
 
 var isLeft, isRight, isPlummeting, isFalling;
 
@@ -367,9 +368,8 @@ if (bgHeartbeatSound)
     if (!isPlummeting) 
     {
         for (var pi = 0; pi < platforms.length; pi++) {
-            if (platforms[pi].checkContact(gameChar_x, gameChar_y)) {
+            if (platforms[pi].checkContact(gameChar_x, gameChar_y) && prevCharY <= platforms[pi].y - 2) {
                 onPlatformNow = true;
-                
                 gameChar_y = platforms[pi].y;
                 break;
             }
@@ -423,6 +423,7 @@ if (bgHeartbeatSound)
     if (!dyingEnemy) {
         checkPlayerDie();
     }
+    prevCharY = gameChar_y;
 }
 
 function keyPressed() 
@@ -1056,7 +1057,7 @@ function manageStepSound() {
 
 function startGame() 
 {
-    gameChar_x = width / 2;
+    gameChar_x = BASE_W / 2;
     gameChar_y = floorPos_y;
 
     isLeft = false;
@@ -1158,6 +1159,7 @@ function startGame()
 
     
     buildGroundGrid();
+    prevCharY = gameChar_y;
 }
 
 function checkPlayerDie() 
