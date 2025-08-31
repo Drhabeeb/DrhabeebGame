@@ -2,6 +2,8 @@
 
 var gameChar_x, gameChar_y, floorPos_y;
 var mobile = { zones: null, joyVec: {x:0,y:0}, jumpLatch: false };
+var BASE_W = 1024, BASE_H = 576;
+var viewScale = 1, viewOffsetX = 0, viewOffsetY = 0;
 
 var isLeft, isRight, isPlummeting, isFalling;
 
@@ -141,11 +143,11 @@ function setup()
     createCanvas(windowWidth, windowHeight);
     pixelDensity(1);
     
-    floorPos_y = height * 3 / 4;
+    floorPos_y = BASE_H * 3 / 4;
 
     lives = 3;
     game_score = 0;
-
+    computeView();
     startGame();
 }
 
@@ -153,17 +155,33 @@ function windowResized()
 {
     resizeCanvas(windowWidth, windowHeight);
     mobile.zones = null;
+    computeView();
+}
+
+function computeView()
+{
+    var sx = width / BASE_W;
+    var sy = height / BASE_H;
+    viewScale = min(sx, sy);
+    viewOffsetX = (width - BASE_W * viewScale) * 0.5;
+    viewOffsetY = (height - BASE_H * viewScale) * 0.5;
 }
 
 
 function draw() 
 {
-    cameraPosX = gameChar_x - width / 2;
+    cameraPosX = gameChar_x - BASE_W / 2;
 
     background(39, 148, 191);
+
+    if (!viewScale) computeView();
+    push();
+    translate(viewOffsetX, viewOffsetY);
+    scale(viewScale);
+
     noStroke();
-    fill(13, 148, 136); 
-    rect(0, floorPos_y, width, height - floorPos_y);
+    fill(13, 148, 136);
+    rect(0, floorPos_y, BASE_W, BASE_H - floorPos_y);
 
     push();
     translate(-cameraPosX, 0);
@@ -250,6 +268,7 @@ function draw()
     }
 
     drawChar();
+    pop();
     pop();
 
     applyTouchControls();
@@ -1445,3 +1464,4 @@ function Enemy (x, y, range)
         return false;
     };
 }   
+
