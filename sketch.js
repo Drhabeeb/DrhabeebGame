@@ -711,7 +711,7 @@ function drawCanyon(t_canyon)
     
     noStroke();
     fill(0, 0, 160);
-    rect(t_canyon.x_pos, floorPos_y, t_canyon.width, height - floorPos_y);
+    rect(t_canyon.x_pos, floorPos_y, t_canyon.width, BASE_H - floorPos_y);
 
     
     var waveW = 24;
@@ -734,8 +734,8 @@ function drawCanyon(t_canyon)
 
     
     fill(0, 0, 0, 120);
-    rect(t_canyon.x_pos, floorPos_y, 4, height - floorPos_y);
-    rect(t_canyon.x_pos + t_canyon.width - 4, floorPos_y, 4, height - floorPos_y);
+    rect(t_canyon.x_pos, floorPos_y, 4, BASE_H - floorPos_y);
+    rect(t_canyon.x_pos + t_canyon.width - 4, floorPos_y, 4, BASE_H - floorPos_y);
 }
 
 
@@ -766,7 +766,7 @@ function buildGroundGrid()
     worldGrid.originX = minX;
     worldGrid.cols = Math.ceil((maxX - minX) / TILE) + 1;
     
-    var groundHeight = height - floorPos_y;
+    var groundHeight = BASE_H - floorPos_y;
     worldGrid.rows = Math.ceil(groundHeight / TILE) + 1;
     worldGrid.data = [];
     for (var r = 0; r < worldGrid.rows; r++) {
@@ -1101,7 +1101,7 @@ function startGame()
           400,   1000,
          1200,   1800
     ];
-    trees_y = height / 2;
+    trees_y = floorPos_y - 145;
 
     cloud_x = [-2100, -1600, -1100, -600, 100, 600, 1100, 1600, 2100];
     cloud_y = 100;
@@ -1162,7 +1162,7 @@ function startGame()
 
 function checkPlayerDie() 
 {
-    if (gameChar_y > height + 50) {
+    if (gameChar_y > BASE_H + 50) {
         lives -= 1;
 
         if (lives > 0) {
@@ -1200,7 +1200,8 @@ function getMobileLayout(){
     var btn = max(60, min(84, floor(base * 0.11)));
     return {
         joy: { cx: w - pad - joyR, cy: h - pad - joyR, r: joyR, knobR: knobR },
-        attack: { x: pad, y: h - pad - btn, w: btn, h: btn }
+        attack: { x: pad, y: h - pad - btn, w: btn, h: btn },
+        restart: { x: w - pad - 56, y: pad, w: 56, h: 36 }
     };
 }
 
@@ -1208,6 +1209,7 @@ function drawMobileControls(){
     var layout = getMobileLayout();
     var joy = layout.joy;
     var atk = layout.attack;
+    var rst = layout.restart;
     noStroke();
     fill(255,255,255,50);
     ellipse(joy.cx, joy.cy, joy.r*2, joy.r*2);
@@ -1221,6 +1223,12 @@ function drawMobileControls(){
     textAlign(CENTER, CENTER);
     textSize(18);
     text('⚡', atk.x + atk.w/2, atk.y + atk.h/2);
+    // Restart button (top-right)
+    fill(255,255,255,70);
+    rect(rst.x, rst.y, rst.w, rst.h, 8);
+    fill(0,0,0,140);
+    textSize(14);
+    text('↻', rst.x + rst.w/2, rst.y + rst.h/2);
 }
 
 function _inZone(t, z){
@@ -1233,6 +1241,7 @@ function applyTouchControls(){
     var layout = getMobileLayout();
     var joy = layout.joy;
     var atk = layout.attack;
+    var rst = layout.restart;
     var best = null;
     var bestD2 = joy.r * joy.r * 4;
     for (var i = 0; i < touches.length; i++){
@@ -1248,7 +1257,18 @@ function applyTouchControls(){
                 attackStartFrame = frameCount;
             }
         }
+        if (_inZone(t, rst)){
+            if (!mobile.restartLatch){
+                lives = 3;
+                game_score = 0;
+                if (flagpole) flagpole.isReached = false;
+                if (stepSound && stepSound.isPlaying()) stepSound.stop();
+                startGame();
+                mobile.restartLatch = true;
+            }
+        }
     }
+    if (touches.length === 0) mobile.restartLatch = false;
     if (best){
         var dx = best.x - joy.cx;
         var dy = best.y - joy.cy;
@@ -1258,8 +1278,8 @@ function applyTouchControls(){
         var ny = dy / joy.r;
         mobile.joyVec = { x: nx, y: ny };
         var dead = 0.25;
-        if (nx > dead) isRight = true;
-        if (nx < -dead) isLeft = true;
+        if (nx > dead) { isRight = true; facing = 1; }
+        if (nx < -dead) { isLeft = true; facing = -1; }
         if (ny < -0.5){
             if (!mobile.jumpLatch && !isFalling && (gameChar_y >= floorPos_y || onPlatformNow)){
                 gameChar_y -= 100;
@@ -1464,4 +1484,3 @@ function Enemy (x, y, range)
         return false;
     };
 }   
-
