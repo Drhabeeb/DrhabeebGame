@@ -841,10 +841,10 @@ function checkCollectable(t_collectable)
 
 function checkCanyon(t_canyon) 
 {
-    
-    var belowIsWater = tileAtWorld(gameChar_x, floorPos_y + 1) === T.WATER;
-    if (belowIsWater && gameChar_y >= floorPos_y) 
-    { if (!isPlummeting && fallingSound) fallingSound.play();
+    var lip = 4; 
+    var overCanyon = (gameChar_x > t_canyon.x_pos + lip) && (gameChar_x < t_canyon.x_pos + t_canyon.width - lip);
+    if (overCanyon && gameChar_y >= floorPos_y) {
+        if (!isPlummeting && fallingSound) fallingSound.play();
         isPlummeting = true;
     }
 }
