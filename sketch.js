@@ -5,6 +5,10 @@ var mobile = { zones: null, joyVec: {x:0,y:0}, jumpLatch: false };
 var BASE_W = 1024, BASE_H = 576;
 var viewScale = 1, viewOffsetX = 0, viewOffsetY = 0;
 var prevCharY = 0;
+// Vertical physics
+var velY = 0;            // vertical velocity (px/frame)
+var GRAVITY = 0.8;       // gravity acceleration
+var JUMP_VEL = -14;      // jump impulse
 
 var isLeft, isRight, isPlummeting, isFalling;
 
@@ -283,7 +287,6 @@ function draw()
     rect(10, 26, 150, 26, 6);
     fill(255);
     text("  Score = " + game_score, 17, 45);
-    text("N = NewGame", 900, 20);
 
     
     if (strikeHintUntil && millis() < strikeHintUntil) {
@@ -330,7 +333,6 @@ function draw()
         stroke(0);
         strokeWeight(4);
         text("Game over", width / 2, height / 2);
-        text("N = NewGame", width / 2, height / 2 + 65);
         pop();
         if (stepSound && stepSound.isPlaying()) stepSound.stop();
         return;
@@ -345,7 +347,6 @@ function draw()
         stroke(0);
         strokeWeight(4);
         text("Level complete", width / 2, height / 2);
-        text("N = NewGame", width / 2, height / 2 + 65);
         pop();
         if (stepSound && stepSound.isPlaying()) stepSound.stop();
         return;
@@ -363,31 +364,41 @@ if (bgHeartbeatSound)
 }
 
 
-    
+    // Physics + platform/ground resolution
     onPlatformNow = false;
-    if (!isPlummeting) 
-    {
-        for (var pi = 0; pi < platforms.length; pi++) {
-            if (platforms[pi].checkContact(gameChar_x, gameChar_y) && prevCharY <= platforms[pi].y - 2) {
-                onPlatformNow = true;
-                gameChar_y = platforms[pi].y;
-                break;
+    if (!isPlummeting) {
+        // Apply gravity
+        velY += GRAVITY;
+
+        // Proposed next Y position
+        var nextY = gameChar_y + velY;
+
+        // Try to land on a platform when falling
+        if (velY >= 0) {
+            for (var pi = 0; pi < platforms.length; pi++) {
+                var p = platforms[pi];
+                var withinX = (gameChar_x > p.x && gameChar_x < p.x + p.length);
+                var crossingTop = (prevCharY <= p.y && nextY >= p.y);
+                if (withinX && crossingTop) {
+                    gameChar_y = p.y;
+                    velY = 0;
+                    isFalling = false;
+                    onPlatformNow = true;
+                    break;
+                }
             }
         }
-    }
 
-    if (gameChar_y < floorPos_y) 
-    {
+        // If not on a platform, resolve with ground
         if (!onPlatformNow) {
-            gameChar_y += 2;
-            isFalling = true;
-        } else {
-            isFalling = false;
-        }
-    } else {
-        if (!isPlummeting) {
-            isFalling = false;
-            gameChar_y = floorPos_y;
+            if (nextY >= floorPos_y) {
+                gameChar_y = floorPos_y;
+                velY = 0;
+                isFalling = false;
+            } else {
+                gameChar_y = nextY;
+                isFalling = velY > 0;
+            }
         }
     }
 
@@ -453,7 +464,7 @@ function keyPressed()
         } 
         else if (( key == 'w' || keyCode == UP_ARROW ) && !isFalling && (gameChar_y >= floorPos_y || onPlatformNow))
         {
-            gameChar_y -= 100;
+            velY = JUMP_VEL;
             jumpSound.play();
         }
         else if (key == ' ' )
@@ -1041,7 +1052,7 @@ function drawChar()
 function manageStepSound() {
     
     var moving = isLeft || isRight;
-    var onGround = !isFalling && !isPlummeting && gameChar_y >= floorPos_y;
+    var onGround = !isFalling && !isPlummeting && (gameChar_y >= floorPos_y || onPlatformNow);
     var canPlay = lives > 0 && !(flagpole && flagpole.isReached);
 
     if (moving && onGround && canPlay) {
@@ -1059,6 +1070,7 @@ function startGame()
 {
     gameChar_x = BASE_W / 2;
     gameChar_y = floorPos_y;
+    velY = 0;
 
     isLeft = false;
     isRight = false;
@@ -1196,15 +1208,38 @@ function drawLives()
 
 function getMobileLayout(){
     var w = width, h = height, pad = 16;
+    var sa = getSafeAreaInsets();
+    var padL = pad + sa.left;
+    var padR = pad + sa.right;
+    var padT = pad + sa.top;
+    var padB = pad + sa.bottom;
     var base = min(w, h);
     var joyR = max(56, min(96, floor(base * 0.12)));
     var knobR = floor(joyR * 0.45);
     var btn = max(60, min(84, floor(base * 0.11)));
     return {
-        joy: { cx: w - pad - joyR, cy: h - pad - joyR, r: joyR, knobR: knobR },
-        attack: { x: pad, y: h - pad - btn, w: btn, h: btn },
-        restart: { x: w - pad - 56, y: pad, w: 56, h: 36 }
+        joy: { cx: w - padR - joyR, cy: h - padB - joyR, r: joyR, knobR: knobR },
+        attack: { x: padL, y: h - padB - btn, w: btn, h: btn },
+        restart: { x: w - padR - 56, y: padT, w: 56, h: 36 }
     };
+}
+
+// Read iOS safe-area insets (works on iPhone notch/home indicator)
+function getSafeAreaInsets(){
+    try {
+        var probe = document.createElement('div');
+        probe.style.cssText = 'position:fixed;inset:0;padding:'+
+            'env(safe-area-inset-top) env(safe-area-inset-right) '+
+            'env(safe-area-inset-bottom) env(safe-area-inset-left);'+
+            'pointer-events:none;opacity:0;';
+        document.body.appendChild(probe);
+        var cs = getComputedStyle(probe);
+        var toNum = function(v){ var n = parseInt(v,10); return isNaN(n)?0:n; };
+        var top = toNum(cs.paddingTop), right = toNum(cs.paddingRight),
+            bottom = toNum(cs.paddingBottom), left = toNum(cs.paddingLeft);
+        document.body.removeChild(probe);
+        return { top: top, right: right, bottom: bottom, left: left };
+    } catch(e) { return { top: 0, right: 0, bottom: 0, left: 0 }; }
 }
 
 function drawMobileControls(){
@@ -1284,7 +1319,7 @@ function applyTouchControls(){
         if (nx < -dead) { isLeft = true; facing = -1; }
         if (ny < -0.5){
             if (!mobile.jumpLatch && !isFalling && (gameChar_y >= floorPos_y || onPlatformNow)){
-                gameChar_y -= 100;
+                velY = JUMP_VEL;
                 if (jumpSound) jumpSound.play();
                 mobile.jumpLatch = true;
             }
@@ -1300,6 +1335,7 @@ function applyTouchControls(){
 function touchStarted(){
     var ctx = getAudioContext();
     if (ctx && ctx.state !== 'running') ctx.resume();
+    if (typeof userStartAudio === 'function') { try { userStartAudio(); } catch(e) {} }
     if (typeof bgHeartbeatSound !== 'undefined' && bgHeartbeatSound && !bgHeartbeatSound.isPlaying()){
         try { bgHeartbeatSound.loop(); } catch(e) {}
     }
