@@ -1322,7 +1322,8 @@ function applyTouchControls(){
         }
     }
     if (touches.length === 0) mobile.restartLatch = false;
-    var now = (typeof millis === 'function') ? millis() : 0;
+    var onGround = !isFalling && !isPlummeting && (gameChar_y >= floorPos_y || onPlatformNow);
+    var airborne = !onGround;
     if (best){
         var dx = best.x - joy.cx;
         var dy = best.y - joy.cy;
@@ -1331,31 +1332,35 @@ function applyTouchControls(){
         var nx = dx / joy.r;
         var ny = dy / joy.r;
         mobile.joyVec = { x: nx, y: ny };
-        var dead = 0.25;
+        var X_ON = 0.20, X_OFF = 0.10;
         var hasX = false;
-        if (nx > dead) { isRight = true; facing = 1; hasX = true; mobile.prevDir = 1; }
-        if (nx < -dead) { isLeft = true; facing = -1; hasX = true; mobile.prevDir = -1; }
+        if (nx > X_ON) { isRight = true; facing = 1; hasX = true; mobile.xHoldDir = 1; }
+        else if (nx < -X_ON) { isLeft = true; facing = -1; hasX = true; mobile.xHoldDir = -1; }
+        else if (abs(nx) < X_OFF && onGround) { mobile.xHoldDir = 0; }
         if (ny < -0.5){
             if (!mobile.jumpLatch && !isFalling && (gameChar_y >= floorPos_y || onPlatformNow)){
                 velY = JUMP_VEL;
                 if (jumpSound) jumpSound.play();
                 mobile.jumpLatch = true;
-                if (!hasX && mobile.prevDir){
-                    if (mobile.prevDir > 0) { isRight = true; facing = 1; }
+                if (!hasX && mobile.xHoldDir){
+                    if (mobile.xHoldDir > 0) { isRight = true; facing = 1; }
                     else { isLeft = true; facing = -1; }
-                    mobile.dirStickyUntil = now + mobile.dirStickyMs;
                 }
             }
         } else if (ny > -0.2){
             mobile.jumpLatch = false;
         }
-        if (!hasX && now < mobile.dirStickyUntil && mobile.prevDir){
-            if (mobile.prevDir > 0) { isRight = true; facing = 1; } else { isLeft = true; facing = -1; }
+        if (!hasX && airborne && mobile.xHoldDir){
+            if (mobile.xHoldDir > 0) { isRight = true; facing = 1; } else { isLeft = true; facing = -1; }
         }
     } else {
         mobile.joyVec = { x: 0, y: 0 };
         mobile.jumpLatch = false;
-        mobile.dirStickyUntil = 0;
+        if (airborne && mobile.xHoldDir){
+            if (mobile.xHoldDir > 0) { isRight = true; facing = 1; } else { isLeft = true; facing = -1; }
+        } else if (onGround) {
+            mobile.xHoldDir = 0;
+        }
     }
 }
 
