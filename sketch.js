@@ -282,10 +282,17 @@ function draw()
 
     
     noStroke();
+    var sa = getSafeAreaInsets();
+    var label = "Score = " + game_score;
+    textSize(18);
+    textAlign(RIGHT, CENTER);
+    var tx = width - (sa.right + 14);
+    var ty = (sa.top + 24);
+    var tw = textWidth(label);
     fill(0, 0, 0, 120);
-    rect(10, 26, 150, 26, 6);
+    rect(tx - tw - 16, ty - 14, tw + 22, 28, 6);
     fill(255);
-    text("  Score = " + game_score, 17, 45);
+    text(label, tx, ty);
 
     
 
@@ -1234,9 +1241,13 @@ function getMobileLayout(){
     var joyR = max(56, min(96, floor(base * 0.12)));
     var knobR = floor(joyR * 0.45);
     var btn = max(60, min(84, floor(base * 0.11)));
+    var gap = 12;
+    var jumpY = h - padB - btn;
+    var atkY = jumpY - btn - gap;
     return {
         joy: { cx: w - padR - joyR, cy: h - padB - joyR, r: joyR, knobR: knobR },
-        attack: { x: padL, y: h - padB - btn, w: btn, h: btn },
+        attack: { x: padL, y: atkY, w: btn, h: btn },
+        jump:   { x: padL, y: jumpY, w: btn, h: btn },
         restart: { x: w - padR - 56, y: padT, w: 56, h: 36 }
     };
 }
@@ -1262,6 +1273,7 @@ function drawMobileControls(){
     var layout = getMobileLayout();
     var joy = layout.joy;
     var atk = layout.attack;
+    var jmp = layout.jump;
     var rst = layout.restart;
     noStroke();
     fill(255,255,255,50);
@@ -1276,6 +1288,12 @@ function drawMobileControls(){
     textAlign(CENTER, CENTER);
     textSize(18);
     text('⚡', atk.x + atk.w/2, atk.y + atk.h/2);
+    // Jump button below attack
+    fill(255,255,255,60);
+    rect(jmp.x, jmp.y, jmp.w, jmp.h, 12);
+    fill(0,0,0,120);
+    textSize(18);
+    text('⤊', jmp.x + jmp.w/2, jmp.y + jmp.h/2);
     
     fill(255,255,255,70);
     rect(rst.x, rst.y, rst.w, rst.h, 8);
@@ -1294,6 +1312,7 @@ function applyTouchControls(){
     var layout = getMobileLayout();
     var joy = layout.joy;
     var atk = layout.attack;
+    var jmp = layout.jump;
     var rst = layout.restart;
     var best = null;
     var bestD2 = joy.r * joy.r * 4;
@@ -1308,6 +1327,13 @@ function applyTouchControls(){
                 game_score -= 1;
                 isAttacking = true;
                 attackStartFrame = frameCount;
+            }
+        }
+        if (_inZone(t, jmp)){
+            if (!mobile.jumpLatch && !isFalling && (gameChar_y >= floorPos_y || onPlatformNow)){
+                velY = JUMP_VEL;
+                if (jumpSound) jumpSound.play();
+                mobile.jumpLatch = true;
             }
         }
         if (_inZone(t, rst)){
