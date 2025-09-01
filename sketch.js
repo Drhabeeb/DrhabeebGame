@@ -282,17 +282,16 @@ function draw()
 
     
     noStroke();
-    var sa = getSafeAreaInsets();
     var label = "Score = " + game_score;
     textSize(18);
-    textAlign(RIGHT, CENTER);
-    var tx = width - (sa.right + 14);
-    var ty = (sa.top + 24);
+    textAlign(LEFT, CENTER);
+    var sx = 17;
+    var sy = 45;
     var tw = textWidth(label);
     fill(0, 0, 0, 120);
-    rect(tx - tw - 16, ty - 14, tw + 22, 28, 6);
+    rect(10, 26, tw + 22, 28, 6);
     fill(255);
-    text(label, tx, ty);
+    text(label, sx, sy);
 
     
 
