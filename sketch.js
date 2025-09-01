@@ -1,14 +1,13 @@
 
 
 var gameChar_x, gameChar_y, floorPos_y;
-var mobile = { zones: null, joyVec: {x:0,y:0}, jumpLatch: false };
+var mobile = { zones: null, joyVec: {x:0,y:0}, jumpLatch: false, prevDir: 0, dirStickyUntil: 0, dirStickyMs: 180 };
 var BASE_W = 1024, BASE_H = 576;
 var viewScale = 1, viewOffsetX = 0, viewOffsetY = 0;
 var prevCharY = 0;
-// Vertical physics
-var velY = 0;            // vertical velocity (px/frame)
-var GRAVITY = 0.8;       // gravity acceleration
-var JUMP_VEL = -14;      // jump impulse
+var velY = 0;
+var GRAVITY = 0.8;
+var JUMP_VEL = -14;
 
 var isLeft, isRight, isPlummeting, isFalling;
 
@@ -288,7 +287,7 @@ function draw()
     fill(255);
     text("  Score = " + game_score, 17, 45);
 
-    // Removed on-screen "press space" hint to declutter HUD
+    
 
     
     (function()
@@ -356,16 +355,16 @@ if (bgHeartbeatSound)
 }
 
 
-    // Physics + platform/ground resolution
+    
     onPlatformNow = false;
     if (!isPlummeting) {
-        // Apply gravity
+        
         velY += GRAVITY;
 
-        // Proposed next Y position
+        
         var nextY = gameChar_y + velY;
 
-        // Try to land on a platform when falling
+        
         if (velY >= 0) {
             for (var pi = 0; pi < platforms.length; pi++) {
                 var p = platforms[pi];
@@ -381,7 +380,7 @@ if (bgHeartbeatSound)
             }
         }
 
-        // If not on a platform, resolve with ground
+        
         if (!onPlatformNow) {
             if (nextY >= floorPos_y) {
                 gameChar_y = floorPos_y;
@@ -488,27 +487,27 @@ function keyReleased()
 
 function drawClouds() 
 {
-    var names = ["فارس", "فيصل", "صيته", "غنى"]; // Arabic names per cloud, cycle
+    var names = ["فارس", "فيصل", "صيته", "غنى"]; 
     for (var i = 0; i < cloud_x.length; i++) {
         var drift = (frameCount * 0.12) % 400; 
         var cx = cloud_x[i] + drift;
-        // Cloud body
+        
         noStroke();
         fill(255);
         ellipse(cx,         cloud_y, cloud_width, cloud_height);
         ellipse(cx + 50,    cloud_y, cloud_width, cloud_height);
         ellipse(cx + 25, cloud_y - 20, cloud_width, cloud_height);
 
-        // Cloud label
+        
         var label = names[i % names.length];
         textAlign(CENTER, CENTER);
         textSize(20);
         if (label === "فارس") {
-            fill(30, 90, 220); // blue for فارس (Faris)
+            fill(30, 90, 220);
         } else {
-            fill(139, 69, 19); // brown for others
+            fill(139, 69, 19);
         }
-        // position roughly at the center of the cloud cluster
+        
         text(label, cx + 25, cloud_y - 8);
     }
 }
@@ -1169,18 +1168,23 @@ function startGame()
     enemies.push(new Enemy(-1800, floorPos_y, 250));
 
     
-    // Rework platforms: remove ones above canyons; keep low, add safe varied heights
     platforms = [];
-    // Safe, low platform near start
     platforms.push(createPlatform( 700,  floorPos_y - 80, 120));
-    // Additional low/medium platforms not over canyons
     platforms.push(createPlatform( -600, floorPos_y - 80,  150));
     platforms.push(createPlatform(   50, floorPos_y - 120, 140));
     platforms.push(createPlatform( 1150, floorPos_y - 100, 160));
-    // A slightly higher step to explore upwards (still not over a canyon)
     platforms.push(createPlatform( 1450, floorPos_y - 160, 140));
-    // One on the far left area
     platforms.push(createPlatform(-1200, floorPos_y - 130, 160));
+    // add bridges over some canyons (every other one)
+    for (var ci = 0; ci < canyons.length; ci++) {
+        if (ci % 2 === 0) {
+            var c = canyons[ci];
+            var px = c.x_pos + 10;
+            var pw = max(40, c.width - 20);
+            var py = floorPos_y - 60;
+            platforms.push(createPlatform(px, py, pw));
+        }
+    }
 
     
     buildGroundGrid();
@@ -1237,7 +1241,6 @@ function getMobileLayout(){
     };
 }
 
-// Read iOS safe-area insets (works on iPhone notch/home indicator)
 function getSafeAreaInsets(){
     try {
         var probe = document.createElement('div');
@@ -1273,7 +1276,7 @@ function drawMobileControls(){
     textAlign(CENTER, CENTER);
     textSize(18);
     text('⚡', atk.x + atk.w/2, atk.y + atk.h/2);
-    // Restart button (top-right)
+    
     fill(255,255,255,70);
     rect(rst.x, rst.y, rst.w, rst.h, 8);
     fill(0,0,0,140);
@@ -1319,6 +1322,7 @@ function applyTouchControls(){
         }
     }
     if (touches.length === 0) mobile.restartLatch = false;
+    var now = (typeof millis === 'function') ? millis() : 0;
     if (best){
         var dx = best.x - joy.cx;
         var dy = best.y - joy.cy;
@@ -1328,20 +1332,30 @@ function applyTouchControls(){
         var ny = dy / joy.r;
         mobile.joyVec = { x: nx, y: ny };
         var dead = 0.25;
-        if (nx > dead) { isRight = true; facing = 1; }
-        if (nx < -dead) { isLeft = true; facing = -1; }
+        var hasX = false;
+        if (nx > dead) { isRight = true; facing = 1; hasX = true; mobile.prevDir = 1; }
+        if (nx < -dead) { isLeft = true; facing = -1; hasX = true; mobile.prevDir = -1; }
         if (ny < -0.5){
             if (!mobile.jumpLatch && !isFalling && (gameChar_y >= floorPos_y || onPlatformNow)){
                 velY = JUMP_VEL;
                 if (jumpSound) jumpSound.play();
                 mobile.jumpLatch = true;
+                if (!hasX && mobile.prevDir){
+                    if (mobile.prevDir > 0) { isRight = true; facing = 1; }
+                    else { isLeft = true; facing = -1; }
+                    mobile.dirStickyUntil = now + mobile.dirStickyMs;
+                }
             }
         } else if (ny > -0.2){
             mobile.jumpLatch = false;
         }
+        if (!hasX && now < mobile.dirStickyUntil && mobile.prevDir){
+            if (mobile.prevDir > 0) { isRight = true; facing = 1; } else { isLeft = true; facing = -1; }
+        }
     } else {
         mobile.joyVec = { x: 0, y: 0 };
         mobile.jumpLatch = false;
+        mobile.dirStickyUntil = 0;
     }
 }
 
@@ -1349,7 +1363,7 @@ function touchStarted(){
     var ctx = getAudioContext();
     if (ctx && ctx.state !== 'running') ctx.resume();
     if (typeof userStartAudio === 'function') { try { userStartAudio(); } catch(e) {} }
-    // If an overlay is visible, allow tapping the Restart button
+    
     if ((typeof lives !== 'undefined' && lives < 1) || (typeof flagpole !== 'undefined' && flagpole && flagpole.isReached === true)){
         var btn = getOverlayRestartButtonRect();
         if (mouseX >= btn.x && mouseX <= btn.x + btn.w && mouseY >= btn.y && mouseY <= btn.y + btn.h){
@@ -1369,7 +1383,10 @@ function touchStarted(){
 }
 
 function mousePressed(){
-    // Desktop click to restart from overlays
+    var ctx = (typeof getAudioContext === 'function') ? getAudioContext() : null;
+    if (ctx && ctx.state !== 'running') { try { ctx.resume(); } catch(e) {} }
+    if (typeof userStartAudio === 'function') { try { userStartAudio(); } catch(e) {} }
+    
     if ((typeof lives !== 'undefined' && lives < 1) || (typeof flagpole !== 'undefined' && flagpole && flagpole.isReached === true)){
         var btn = getOverlayRestartButtonRect();
         if (mouseX >= btn.x && mouseX <= btn.x + btn.w && mouseY >= btn.y && mouseY <= btn.y + btn.h){
@@ -1431,7 +1448,6 @@ function drawStethoscopeIconHUD(x, y, s)
     pop();
 }
 
-// UI: Restart button for overlays (game over / level complete)
 function getOverlayRestartButtonRect(){
     var w = 180, h = 50;
     return { x: width / 2 - w / 2, y: height / 2 + 70, w: w, h: h };
