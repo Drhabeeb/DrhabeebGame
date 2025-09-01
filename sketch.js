@@ -288,17 +288,7 @@ function draw()
     fill(255);
     text("  Score = " + game_score, 17, 45);
 
-    
-    if (strikeHintUntil && millis() < strikeHintUntil) {
-        push();
-        textAlign(CENTER, TOP);
-        textSize(22);
-        fill(255);
-        stroke(0);
-        strokeWeight(4);
-        text("Space = Strike the Bacteria", width / 2, 8);
-        pop();
-    }
+    // Removed on-screen "press space" hint to declutter HUD
 
     
     (function()
@@ -333,6 +323,7 @@ function draw()
         stroke(0);
         strokeWeight(4);
         text("Game over", width / 2, height / 2);
+        drawOverlayRestartButton();
         pop();
         if (stepSound && stepSound.isPlaying()) stepSound.stop();
         return;
@@ -347,6 +338,7 @@ function draw()
         stroke(0);
         strokeWeight(4);
         text("Level complete", width / 2, height / 2);
+        drawOverlayRestartButton();
         pop();
         if (stepSound && stepSound.isPlaying()) stepSound.stop();
         return;
@@ -496,14 +488,28 @@ function keyReleased()
 
 function drawClouds() 
 {
+    var names = ["فارس", "فيصل", "صيته", "غنى"]; // Arabic names per cloud, cycle
     for (var i = 0; i < cloud_x.length; i++) {
         var drift = (frameCount * 0.12) % 400; 
         var cx = cloud_x[i] + drift;
+        // Cloud body
+        noStroke();
         fill(255);
         ellipse(cx,         cloud_y, cloud_width, cloud_height);
         ellipse(cx + 50,    cloud_y, cloud_width, cloud_height);
         ellipse(cx + 25, cloud_y - 20, cloud_width, cloud_height);
-        noStroke();
+
+        // Cloud label
+        var label = names[i % names.length];
+        textAlign(CENTER, CENTER);
+        textSize(20);
+        if (label === "فارس") {
+            fill(30, 90, 220); // blue for فارس (Faris)
+        } else {
+            fill(139, 69, 19); // brown for others
+        }
+        // position roughly at the center of the cloud cluster
+        text(label, cx + 25, cloud_y - 8);
     }
 }
 
@@ -1163,11 +1169,18 @@ function startGame()
     enemies.push(new Enemy(-1800, floorPos_y, 250));
 
     
+    // Rework platforms: remove ones above canyons; keep low, add safe varied heights
     platforms = [];
-    platforms.push(createPlatform(-300, floorPos_y - 90, 140));
-    platforms.push(createPlatform( 200, floorPos_y - 120, 160));
-    platforms.push(createPlatform( 700, floorPos_y - 80, 120));
-    platforms.push(createPlatform(-900, floorPos_y - 140, 180));
+    // Safe, low platform near start
+    platforms.push(createPlatform( 700,  floorPos_y - 80, 120));
+    // Additional low/medium platforms not over canyons
+    platforms.push(createPlatform( -600, floorPos_y - 80,  150));
+    platforms.push(createPlatform(   50, floorPos_y - 120, 140));
+    platforms.push(createPlatform( 1150, floorPos_y - 100, 160));
+    // A slightly higher step to explore upwards (still not over a canyon)
+    platforms.push(createPlatform( 1450, floorPos_y - 160, 140));
+    // One on the far left area
+    platforms.push(createPlatform(-1200, floorPos_y - 130, 160));
 
     
     buildGroundGrid();
@@ -1336,11 +1349,38 @@ function touchStarted(){
     var ctx = getAudioContext();
     if (ctx && ctx.state !== 'running') ctx.resume();
     if (typeof userStartAudio === 'function') { try { userStartAudio(); } catch(e) {} }
+    // If an overlay is visible, allow tapping the Restart button
+    if ((typeof lives !== 'undefined' && lives < 1) || (typeof flagpole !== 'undefined' && flagpole && flagpole.isReached === true)){
+        var btn = getOverlayRestartButtonRect();
+        if (mouseX >= btn.x && mouseX <= btn.x + btn.w && mouseY >= btn.y && mouseY <= btn.y + btn.h){
+            lives = 3;
+            game_score = 0;
+            if (flagpole) flagpole.isReached = false;
+            if (stepSound && stepSound.isPlaying()) stepSound.stop();
+            startGame();
+            return false;
+        }
+    }
     if (typeof bgHeartbeatSound !== 'undefined' && bgHeartbeatSound && !bgHeartbeatSound.isPlaying()){
         try { bgHeartbeatSound.loop(); } catch(e) {}
     }
     applyTouchControls();
     return false;
+}
+
+function mousePressed(){
+    // Desktop click to restart from overlays
+    if ((typeof lives !== 'undefined' && lives < 1) || (typeof flagpole !== 'undefined' && flagpole && flagpole.isReached === true)){
+        var btn = getOverlayRestartButtonRect();
+        if (mouseX >= btn.x && mouseX <= btn.x + btn.w && mouseY >= btn.y && mouseY <= btn.y + btn.h){
+            lives = 3;
+            game_score = 0;
+            if (flagpole) flagpole.isReached = false;
+            if (stepSound && stepSound.isPlaying()) stepSound.stop();
+            startGame();
+            return false;
+        }
+    }
 }
 
 function touchMoved(){
@@ -1389,6 +1429,23 @@ function drawStethoscopeIconHUD(x, y, s)
     ellipse(len - 2, sag, 3, 3);
 
     pop();
+}
+
+// UI: Restart button for overlays (game over / level complete)
+function getOverlayRestartButtonRect(){
+    var w = 180, h = 50;
+    return { x: width / 2 - w / 2, y: height / 2 + 70, w: w, h: h };
+}
+
+function drawOverlayRestartButton(){
+    var btn = getOverlayRestartButtonRect();
+    noStroke();
+    fill(255,255,255,200);
+    rect(btn.x, btn.y, btn.w, btn.h, 10);
+    fill(0,0,0,200);
+    textAlign(CENTER, CENTER);
+    textSize(22);
+    text('Restart', btn.x + btn.w/2, btn.y + btn.h/2);
 }
 
 function Enemy (x, y, range) 
