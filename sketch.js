@@ -1182,16 +1182,28 @@ function startGame()
     platforms.push(createPlatform( 1150, floorPos_y - 100, 160));
     platforms.push(createPlatform( 1450, floorPos_y - 160, 140));
     platforms.push(createPlatform(-1200, floorPos_y - 130, 160));
-    // add bridges over some canyons (every other one)
-    for (var ci = 0; ci < canyons.length; ci++) {
-        if (ci % 2 === 0) {
-            var c = canyons[ci];
-            var px = c.x_pos + 10;
-            var pw = max(40, c.width - 20);
+    // bridge only over the second-left canyon (x = -300)
+    (function(){
+        var target = null;
+        for (var ci = 0; ci < canyons.length; ci++) {
+            if (canyons[ci].x_pos === -300) { target = canyons[ci]; break; }
+        }
+        if (!target) {
+            // fallback: choose the widest canyon on the left side
+            var bestW = -1;
+            for (var cj = 0; cj < canyons.length; cj++) {
+                if (canyons[cj].x_pos < 0 && canyons[cj].width > bestW) {
+                    bestW = canyons[cj].width; target = canyons[cj];
+                }
+            }
+        }
+        if (target) {
+            var px = target.x_pos + 10;
+            var pw = max(60, target.width - 20);
             var py = floorPos_y - 60;
             platforms.push(createPlatform(px, py, pw));
         }
-    }
+    })();
 
     
     buildGroundGrid();
