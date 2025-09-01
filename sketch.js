@@ -1443,6 +1443,12 @@ function mousePressed(){
 }
 
 function touchMoved(){
+    var ctx = getAudioContext();
+    if (ctx && ctx.state !== 'running') ctx.resume();
+    if (typeof userStartAudio === 'function') { try { userStartAudio(); } catch(e) {} }
+    if (typeof bgHeartbeatSound !== 'undefined' && bgHeartbeatSound && !bgHeartbeatSound.isPlaying()){
+        try { bgHeartbeatSound.loop(); } catch(e) {}
+    }
     applyTouchControls();
     return false;
 }
